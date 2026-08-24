@@ -1,0 +1,10 @@
+Package: glinet-github-jump-users
+Version: 0.0.1
+Architecture: all
+Maintainer: Pedro Valois
+Section: net
+Priority: optional
+Depends: curl, dropbear
+Conflicts: cvlab-jump
+Replaces: cvlab-jump
+Description: GitHub-backed router and jump account access with a native GL.iNet admin page.

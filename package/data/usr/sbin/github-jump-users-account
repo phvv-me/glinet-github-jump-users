@@ -1,0 +1,111 @@
+#!/bin/sh
+set -e
+
+. /lib/functions.sh
+
+action=${1:-}
+username=${2:-}
+label=${3:-}
+
+validate_username() {
+  case "$username" in
+    ''|root|[!a-z_]*|*[!a-z0-9_-]*) echo "invalid router username" >&2; exit 2 ;;
+  esac
+  test "${#username}" -le 32 || {
+    echo "invalid router username" >&2
+    exit 2
+  }
+}
+
+find_account() {
+  local section existing
+  section=$1
+  config_get existing "$section" username
+  if test "$existing" = "$username"
+  then
+    found=$section
+  fi
+  return 0
+}
+
+case "$action" in
+  create)
+    validate_username
+    test -n "$label" || label=$username
+    case "$label" in
+      *[!A-Za-z0-9._\ -]*) echo "invalid account label" >&2; exit 2 ;;
+    esac
+    test "${#label}" -le 64 || {
+      echo "invalid account label" >&2
+      exit 2
+    }
+
+    found=
+    config_load github-jump-users
+    config_foreach find_account account
+    test -z "$found" || {
+      echo "router account is already configured" >&2
+      exit 3
+    }
+    id "$username" >/dev/null 2>&1 && {
+      echo "system account already exists" >&2
+      exit 3
+    }
+
+    grep -q '^jumpusers:' /etc/group || addgroup jumpusers
+    adduser -D -G jumpusers -h "/home/$username" -s /bin/ash \
+      -g "Restricted SSH jump account" "$username"
+    passwd -l "$username" >/dev/null 2>&1 || true
+    mkdir -p "/home/$username/.ssh"
+    touch "/home/$username/.ssh/authorized_keys"
+    chown root:root "/home/$username" "/home/$username/.ssh"
+    chown "root:$(id -g "$username")" "/home/$username/.ssh/authorized_keys"
+    chmod 755 "/home/$username" "/home/$username/.ssh"
+    chmod 640 "/home/$username/.ssh/authorized_keys"
+
+    section=$(uci add github-jump-users account)
+    uci set "github-jump-users.$section.username=$username"
+    uci set "github-jump-users.$section.label=$label"
+    uci set "github-jump-users.$section.mode=jump"
+    uci set "github-jump-users.$section.managed=1"
+    uci set "github-jump-users.$section.created=1"
+    uci set "github-jump-users.$section.key_file=/home/$username/.ssh/authorized_keys"
+    uci commit github-jump-users
+    echo CREATE_OK
+    ;;
+  remove)
+    validate_username
+    found=
+    config_load github-jump-users
+    config_foreach find_account account
+    test -n "$found" || {
+      echo "router account is not configured" >&2
+      exit 3
+    }
+    config_get created "$found" created 0
+    test "$created" = 1 || {
+      echo "only plugin-created accounts can be removed" >&2
+      exit 4
+    }
+
+    remove_member() {
+      local member member_account
+      member=$1
+      config_get member_account "$member" account
+      if test "$member_account" = "$username"
+      then
+        uci -q delete "github-jump-users.$member"
+      fi
+      return 0
+    }
+    config_foreach remove_member member
+    uci -q delete "github-jump-users.$found"
+    uci commit github-jump-users
+    deluser --remove-home "$username" >/dev/null 2>&1 || true
+    echo REMOVE_OK
+    ;;
+  *)
+    echo "usage: github-jump-users-account create USERNAME LABEL | remove USERNAME" >&2
+    exit 2
+    ;;
+esac

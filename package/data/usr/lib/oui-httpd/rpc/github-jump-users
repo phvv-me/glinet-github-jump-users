@@ -1,0 +1,262 @@
+local fs = require "nixio.fs"
+local uci = require "uci"
+
+local M = {}
+local config_name = "github-jump-users"
+
+local function run(argv, timeout)
+    local process, err = ngx.pipe.spawn(
+        argv,
+        { merge_stderr = true, stdout_read_timeout = timeout or 30000 }
+    )
+
+    if not process then
+        return false, err or "Could not start command"
+    end
+
+    local output = process:read_all()
+    return output:match("_OK") ~= nil, output
+end
+
+local function read_keys(key_file)
+    local managed = {}
+    local unmanaged = 0
+    local file = io.open(key_file, "r")
+
+    if not file then
+        return managed, unmanaged
+    end
+
+    for line in file:lines() do
+        local fields = {}
+        for field in line:gmatch("%S+") do
+            fields[#fields + 1] = field
+        end
+        local marker = fields[#fields] or ""
+        local key_type
+
+        if marker:match("^gjju%-%S+") then
+            key_type = fields[1]:match("^command=") and fields[2] or fields[1]
+            managed[marker] = managed[marker] or { count = 0, types = {} }
+            managed[marker].count = managed[marker].count + 1
+            managed[marker].types[key_type] = true
+        elseif line:match("%S") then
+            unmanaged = unmanaged + 1
+        end
+    end
+    file:close()
+
+    return managed, unmanaged
+end
+
+local function configured_accounts()
+    local cursor = uci.cursor()
+    local accounts = {}
+    local by_username = {}
+
+    cursor:foreach(config_name, "account", function(section)
+        local username = section.username or ""
+        local managed_keys, unmanaged_keys = read_keys(section.key_file or "")
+        local account = {
+            username = username,
+            label = section.label or username,
+            mode = section.mode or "jump",
+            removable = section.created == "1",
+            unmanaged_key_count = unmanaged_keys,
+            members = {},
+            managed_keys = managed_keys
+        }
+        accounts[#accounts + 1] = account
+        by_username[username] = account
+    end)
+
+    cursor:foreach(config_name, "member", function(section)
+        local account = by_username[section.account or ""]
+        if account then
+            local github = section.github or ""
+            local marker = "gjju-" .. account.username .. "-" .. github
+            local active = account.managed_keys[marker] or { count = 0, types = {} }
+            local key_types = {}
+            for key_type in pairs(active.types) do
+                key_types[#key_types + 1] = key_type
+            end
+            table.sort(key_types)
+
+            account.members[#account.members + 1] = {
+                github = github,
+                target_user = section.target_user or github:lower(),
+                identity_file = section.identity_file or "~/.ssh/id_ed25519",
+                key_count = active.count,
+                key_types = key_types,
+            }
+        end
+    end)
+
+    for _, account in ipairs(accounts) do
+        account.managed_keys = nil
+        table.sort(account.members, function(left, right)
+            return left.github:lower() < right.github:lower()
+        end)
+    end
+    table.sort(accounts, function(left, right)
+        if left.username == "root" then
+            return true
+        end
+        if right.username == "root" then
+            return false
+        end
+        return left.username:lower() < right.username:lower()
+    end)
+
+    return accounts
+end
+
+function M.get_status()
+    local cursor = uci.cursor()
+    local accounts = configured_accounts()
+    local member_count = 0
+    local key_count = 0
+
+    for _, account in ipairs(accounts) do
+        member_count = member_count + #account.members
+        for _, member in ipairs(account.members) do
+            key_count = key_count + member.key_count
+        end
+    end
+
+    local updated_at = 0
+    cursor:foreach(config_name, "account", function(section)
+        local key_stat = fs.stat(section.key_file or "")
+        updated_at = math.max(updated_at, key_stat and key_stat.mtime or 0)
+    end)
+
+    return {
+        endpoint = cursor:get(config_name, "main", "endpoint") or "",
+        ssh_port = tonumber(cursor:get(config_name, "main", "ssh_port")) or 22,
+        account_count = #accounts,
+        member_count = member_count,
+        key_count = key_count,
+        updated_at = updated_at,
+        accounts = accounts,
+        protections = {
+            "Jump accounts have locked passwords",
+            "Jump accounts have no interactive router shell or PTY",
+            "Native SSH port, agent, and X11 forwarding are disabled",
+            "Only the forced connect HOST PORT command is accepted"
+        }
+    }
+end
+
+function M.create_account(params)
+    params = params or {}
+    local success, output = run({
+        "/usr/sbin/github-jump-users-account",
+        "create",
+        params.username or "",
+        params.label or ""
+    })
+    if not success then
+        return { success = false, error = output ~= "" and output or "Could not create account" }
+    end
+
+    local status = M.get_status()
+    status.success = true
+    return status
+end
+
+function M.remove_account(params)
+    params = params or {}
+    local success, output = run({
+        "/usr/sbin/github-jump-users-account",
+        "remove",
+        params.username or ""
+    })
+    if not success then
+        return { success = false, error = output ~= "" and output or "Could not remove account" }
+    end
+
+    local status = M.get_status()
+    status.success = true
+    return status
+end
+
+function M.add_member(params)
+    params = params or {}
+    if params.account == "root" and params.confirm_root ~= true then
+        return { success = false, error = "Root access requires explicit confirmation" }
+    end
+
+    local success, output = run({
+        "/usr/sbin/github-jump-users-member",
+        "add",
+        params.account or "",
+        params.github or "",
+        params.target_user or "",
+        params.identity_file or ""
+    }, 180000)
+    if not success then
+        return { success = false, error = output ~= "" and output or "Could not add GitHub user" }
+    end
+
+    local status = M.get_status()
+    status.success = true
+    return status
+end
+
+function M.remove_member(params)
+    params = params or {}
+    local success, output = run({
+        "/usr/sbin/github-jump-users-member",
+        "remove",
+        params.account or "",
+        params.github or ""
+    }, 30000)
+    if not success then
+        return { success = false, error = output ~= "" and output or "Could not remove GitHub user" }
+    end
+
+    local status = M.get_status()
+    status.success = true
+    return status
+end
+
+function M.sync_users()
+    local success, output = run({ "/usr/sbin/github-jump-users-sync" }, 180000)
+    if not success then
+        return { success = false, error = output ~= "" and output or "Synchronization failed" }
+    end
+
+    local status = M.get_status()
+    status.success = true
+    return status
+end
+
+function M.save_settings(params)
+    params = params or {}
+    local endpoint = params.endpoint or ""
+    local ssh_port = tonumber(params.ssh_port)
+
+    if endpoint == "" or endpoint:match("[^A-Za-z0-9%.:%-]") or endpoint:match("^-") then
+        return { success = false, error = "Invalid public endpoint" }
+    end
+    if not ssh_port or ssh_port < 1 or ssh_port > 65535 or ssh_port % 1 ~= 0 then
+        return { success = false, error = "Invalid SSH port" }
+    end
+
+    local cursor = uci.cursor()
+    cursor:set(config_name, "main", "endpoint", endpoint)
+    cursor:set(config_name, "main", "ssh_port", tostring(ssh_port))
+    cursor:commit(config_name)
+    fs.sync()
+
+    local success, output = run({ "/usr/sbin/github-jump-users-setup" }, 30000)
+    if not success then
+        return { success = false, error = output ~= "" and output or "Could not apply settings" }
+    end
+
+    local status = M.get_status()
+    status.success = true
+    return status
+end
+
+return M

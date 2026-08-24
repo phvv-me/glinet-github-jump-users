@@ -1,0 +1,12 @@
+{
+  "index": 90,
+  "view": "github-jump-users",
+  "level": 2,
+  "title": "GitHub Jump Users",
+  "parent": "applications",
+  "parent_icon": "application",
+  "parent_index": 55,
+  "show_mode": [
+    "router"
+  ]
+}

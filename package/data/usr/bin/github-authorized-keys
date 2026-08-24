@@ -1,0 +1,71 @@
+#!/bin/sh
+set -eu
+
+test "$#" -gt 2 || {
+  echo "usage: github-authorized-keys MODE ACCOUNT USERNAME..." >&2
+  exit 2
+}
+
+mode=$1
+account=$2
+shift 2
+
+case "$mode" in
+  admin|jump) ;;
+  *) echo "invalid account mode" >&2; exit 2 ;;
+esac
+case "$account" in
+  ''|*[!A-Za-z0-9._-]*) echo "invalid router account" >&2; exit 2 ;;
+esac
+
+workdir=$(mktemp -d)
+trap 'rm -rf "$workdir"' EXIT HUP INT TERM
+output="$workdir/authorized_keys"
+restrictions='command="/usr/libexec/github-jump-users-connect",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty'
+
+for username in "$@"
+do
+  case "$username" in
+    ''|-*|*-|*--*|*[!A-Za-z0-9-]*)
+      echo "invalid GitHub username $username" >&2
+      exit 2
+      ;;
+  esac
+  test "${#username}" -le 39 || {
+    echo "invalid GitHub username $username" >&2
+    exit 2
+  }
+
+  keys="$workdir/$username.keys"
+  curl -fsSL --connect-timeout 10 --max-time 20 \
+    "https://github.com/$username.keys" > "$keys"
+
+  awk -v restrictions="$restrictions" -v mode="$mode" \
+    -v account="$account" -v username="$username" '
+    BEGIN { found = 0 }
+    $1 == "ssh-rsa" ||
+    $1 == "ssh-ed25519" ||
+    $1 == "ecdsa-sha2-nistp256" ||
+    $1 == "sk-ssh-ed25519@openssh.com" ||
+    $1 == "sk-ecdsa-sha2-nistp256@openssh.com" {
+      if ($2 !~ /^[A-Za-z0-9+\/=]+$/) {
+        exit 1
+      }
+      marker = "gjju-" account "-" username
+      if (mode == "jump") {
+        print restrictions, $1, $2, marker
+      } else {
+        print $1, $2, marker
+      }
+      found++
+    }
+    END { if (found == 0) exit 1 }
+  ' "$keys" >> "$output"
+done
+
+if test "$mode" = jump
+then
+  awk '!seen[$2 " " $3]++' "$output"
+else
+  awk '!seen[$1 " " $2]++' "$output"
+fi

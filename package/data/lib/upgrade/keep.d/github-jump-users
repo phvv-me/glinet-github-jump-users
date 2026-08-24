@@ -1,0 +1,12 @@
+/etc/config/github-jump-users
+/home/jump/.ssh/authorized_keys
+/usr/bin/github-authorized-keys
+/usr/sbin/github-jump-users-account
+/usr/sbin/github-jump-users-member
+/usr/sbin/github-jump-users-setup
+/usr/sbin/github-jump-users-sync
+/usr/libexec/github-jump-users-connect
+/usr/lib/oui-httpd/rpc/github-jump-users
+/usr/share/oui/menu.d/github-jump-users.json
+/www/theme/github-jump-users.css
+/www/views/gl-sdk4-ui-github-jump-users.common.js

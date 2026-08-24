@@ -1,0 +1,27 @@
+#!/bin/ash
+set -eu
+set -f
+
+deny() {
+  logger -t github-jump-users "denied user=${LOGNAME:-unknown} source=${SSH_CONNECTION:-unknown} command=${SSH_ORIGINAL_COMMAND:-none}"
+  exit 1
+}
+
+set -- ${SSH_ORIGINAL_COMMAND:-}
+test "$#" -eq 3 || deny
+test "$1" = connect || deny
+
+host=$2
+port=$3
+
+case "$host" in
+  ''|-*|*[!A-Za-z0-9._:%-]*) deny ;;
+esac
+case "$port" in
+  ''|*[!0-9]*) deny ;;
+esac
+test "$port" -ge 1 2>/dev/null || deny
+test "$port" -le 65535 2>/dev/null || deny
+
+logger -t github-jump-users "connect user=${LOGNAME:-unknown} source=${SSH_CONNECTION:-unknown} target=$host port=$port"
+exec nc "$host" "$port"

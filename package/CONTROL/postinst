@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+test -n "${IPKG_INSTROOT:-}" && exit 0
+
+/usr/sbin/github-jump-users-setup
+/usr/sbin/github-jump-users-sync >/dev/null 2>&1 || true
+/etc/init.d/nginx reload
