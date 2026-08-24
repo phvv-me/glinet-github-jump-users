@@ -4,14 +4,12 @@
   "private": true,
   "packageManager": "pnpm@11.23.0",
   "scripts": {
-    "view": "node scripts/build-view.mjs && tailwindcss -i src/app.css -o package/data/www/theme/github-jump-users.css --minify",
+    "view": "node scripts/build-view.mjs",
     "test": "pnpm run view && sh scripts/test.sh",
     "build": "pnpm run test && sh scripts/build.sh"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "4.3.3",
-    "daisyui": "5.7.21",
-    "tailwindcss": "4.3.3",
-    "vue-template-compiler": "2.7.16"
+    "vue-template-compiler": "2.7.16",
+    "vue-template-es2015-compiler": "1.9.1"
   }
 }

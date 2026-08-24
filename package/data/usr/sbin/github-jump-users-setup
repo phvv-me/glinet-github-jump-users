@@ -31,7 +31,16 @@ setup_account() {
   chmod 640 "$key_file"
 }
 
+remove_legacy_member_options() {
+  local section
+  section=$1
+  uci -q delete "github-jump-users.$section.target_user" || true
+  uci -q delete "github-jump-users.$section.identity_file" || true
+}
+
 config_load github-jump-users
 config_foreach setup_account account
+config_foreach remove_legacy_member_options member
+uci commit github-jump-users
 
 echo SETUP_OK

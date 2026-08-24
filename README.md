@@ -2,9 +2,9 @@
 
 Manage GitHub-backed SSH access for router accounts from a native GL.iNet admin page.
 
-The package keeps `root` administration separate from restricted jump accounts. Administrators can create locked jump-only router accounts, assign GitHub users to each router account, refresh public keys, and copy a personalized SSH configuration for every assignment.
+The package keeps `root` administration separate from the restricted `jump` account. Administrators can assign GitHub users to either fixed account, refresh public keys, and copy a personalized SSH configuration for every assignment.
 
-Plugin-created accounts cannot open a router shell, request a PTY, or use SSH forwarding. Their forced command only accepts `connect HOST PORT` and can reach any destination available from the router.
+The `jump` account cannot open a router shell, request a PTY, or use SSH forwarding. Its forced command only accepts `connect HOST PORT` and can reach any destination available from the router.
 
 ## Install
 
@@ -18,7 +18,7 @@ Keys assigned to restricted accounts receive a forced command and options that d
 
 Open Applications, then GitHub Jump Users.
 
-Create a restricted router account or select an existing configured account. Assign a GitHub username, the username that person normally uses on target machines, and their local private key path.
+Select `root` or `jump`, then assign a GitHub username.
 
 Refresh reads the current router state. Sync from GitHub downloads every configured GitHub user's current keys and atomically refreshes each router account.
 

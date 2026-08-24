@@ -1,0 +1,104 @@
+.github-jump-users {
+  padding: 20px 0;
+}
+
+.github-jump-users .main-action,
+.github-jump-users .dialog-button {
+  min-width: 124px;
+  height: 36px;
+}
+
+.github-jump-users .layout-notice {
+  margin: 20px 0;
+}
+
+.github-jump-users .account-pane {
+  padding: 20px;
+}
+
+.github-jump-users .account-summary {
+  margin-bottom: 20px;
+}
+
+.github-jump-users .member-list-title {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  margin-bottom: 10px;
+  color: var(--text-subtitle);
+  font-size: 14px;
+  font-weight: 700;
+  background-color: var(--background-subtitle);
+  border-radius: 5px;
+}
+
+.github-jump-users .member-list-title .btn-text {
+  font-weight: 400;
+}
+
+.github-jump-users .member-list-title .iconfont {
+  margin-right: 6px;
+}
+
+.github-jump-users .member-dialog .el-dialog {
+  width: 90%;
+  max-width: 600px;
+}
+
+.github-jump-users .dialog-warning {
+  margin-bottom: 10px;
+}
+
+.github-jump-users .dialog-form > li {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  color: var(--text-regular);
+}
+
+.github-jump-users .dialog-form > li > div:first-child {
+  flex: 1;
+  margin-right: 10px;
+  color: var(--text-weak);
+}
+
+.github-jump-users .dialog-form > li > div:last-child {
+  width: 70%;
+  min-width: 160px;
+  max-width: 320px;
+}
+
+.github-jump-users .dialog-actions,
+.github-jump-users .drawer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.github-jump-users .config-title {
+  margin-bottom: 10px;
+}
+
+.github-jump-users .config-help {
+  margin-bottom: 15px;
+  color: var(--text-weak);
+}
+
+@media screen and (max-width: 480px) {
+  .github-jump-users .dialog-form > li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .github-jump-users .dialog-form > li > div:first-child,
+  .github-jump-users .dialog-form > li > div:last-child {
+    width: 100%;
+    max-width: none;
+    margin: 0 0 8px;
+  }
+}

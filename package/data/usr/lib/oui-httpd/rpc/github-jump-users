@@ -14,7 +14,7 @@ local function run(argv, timeout)
         return false, err or "Could not start command"
     end
 
-    local output = process:read_all()
+    local output = process:stdout_read_all() or ""
     return output:match("_OK") ~= nil, output
 end
 
@@ -56,12 +56,14 @@ local function configured_accounts()
 
     cursor:foreach(config_name, "account", function(section)
         local username = section.username or ""
+        if username ~= "root" and username ~= "jump" then
+            return
+        end
         local managed_keys, unmanaged_keys = read_keys(section.key_file or "")
         local account = {
             username = username,
             label = section.label or username,
             mode = section.mode or "jump",
-            removable = section.created == "1",
             unmanaged_key_count = unmanaged_keys,
             members = {},
             managed_keys = managed_keys
@@ -84,8 +86,6 @@ local function configured_accounts()
 
             account.members[#account.members + 1] = {
                 github = github,
-                target_user = section.target_user or github:lower(),
-                identity_file = section.identity_file or "~/.ssh/id_ed25519",
                 key_count = active.count,
                 key_types = key_types,
             }
@@ -114,16 +114,6 @@ end
 function M.get_status()
     local cursor = uci.cursor()
     local accounts = configured_accounts()
-    local member_count = 0
-    local key_count = 0
-
-    for _, account in ipairs(accounts) do
-        member_count = member_count + #account.members
-        for _, member in ipairs(account.members) do
-            key_count = key_count + member.key_count
-        end
-    end
-
     local updated_at = 0
     cursor:foreach(config_name, "account", function(section)
         local key_stat = fs.stat(section.key_file or "")
@@ -133,55 +123,16 @@ function M.get_status()
     return {
         endpoint = cursor:get(config_name, "main", "endpoint") or "",
         ssh_port = tonumber(cursor:get(config_name, "main", "ssh_port")) or 22,
-        account_count = #accounts,
-        member_count = member_count,
-        key_count = key_count,
         updated_at = updated_at,
-        accounts = accounts,
-        protections = {
-            "Jump accounts have locked passwords",
-            "Jump accounts have no interactive router shell or PTY",
-            "Native SSH port, agent, and X11 forwarding are disabled",
-            "Only the forced connect HOST PORT command is accepted"
-        }
+        accounts = accounts
     }
-end
-
-function M.create_account(params)
-    params = params or {}
-    local success, output = run({
-        "/usr/sbin/github-jump-users-account",
-        "create",
-        params.username or "",
-        params.label or ""
-    })
-    if not success then
-        return { success = false, error = output ~= "" and output or "Could not create account" }
-    end
-
-    local status = M.get_status()
-    status.success = true
-    return status
-end
-
-function M.remove_account(params)
-    params = params or {}
-    local success, output = run({
-        "/usr/sbin/github-jump-users-account",
-        "remove",
-        params.username or ""
-    })
-    if not success then
-        return { success = false, error = output ~= "" and output or "Could not remove account" }
-    end
-
-    local status = M.get_status()
-    status.success = true
-    return status
 end
 
 function M.add_member(params)
     params = params or {}
+    if params.account ~= "root" and params.account ~= "jump" then
+        return { success = false, error = "Only root and jump are supported" }
+    end
     if params.account == "root" and params.confirm_root ~= true then
         return { success = false, error = "Root access requires explicit confirmation" }
     end
@@ -190,9 +141,7 @@ function M.add_member(params)
         "/usr/sbin/github-jump-users-member",
         "add",
         params.account or "",
-        params.github or "",
-        params.target_user or "",
-        params.identity_file or ""
+        params.github or ""
     }, 180000)
     if not success then
         return { success = false, error = output ~= "" and output or "Could not add GitHub user" }
@@ -205,6 +154,9 @@ end
 
 function M.remove_member(params)
     params = params or {}
+    if params.account ~= "root" and params.account ~= "jump" then
+        return { success = false, error = "Only root and jump are supported" }
+    end
     local success, output = run({
         "/usr/sbin/github-jump-users-member",
         "remove",
@@ -224,34 +176,6 @@ function M.sync_users()
     local success, output = run({ "/usr/sbin/github-jump-users-sync" }, 180000)
     if not success then
         return { success = false, error = output ~= "" and output or "Synchronization failed" }
-    end
-
-    local status = M.get_status()
-    status.success = true
-    return status
-end
-
-function M.save_settings(params)
-    params = params or {}
-    local endpoint = params.endpoint or ""
-    local ssh_port = tonumber(params.ssh_port)
-
-    if endpoint == "" or endpoint:match("[^A-Za-z0-9%.:%-]") or endpoint:match("^-") then
-        return { success = false, error = "Invalid public endpoint" }
-    end
-    if not ssh_port or ssh_port < 1 or ssh_port > 65535 or ssh_port % 1 ~= 0 then
-        return { success = false, error = "Invalid SSH port" }
-    end
-
-    local cursor = uci.cursor()
-    cursor:set(config_name, "main", "endpoint", endpoint)
-    cursor:set(config_name, "main", "ssh_port", tostring(ssh_port))
-    cursor:commit(config_name)
-    fs.sync()
-
-    local success, output = run({ "/usr/sbin/github-jump-users-setup" }, 30000)
-    if not success then
-        return { success = false, error = output ~= "" and output or "Could not apply settings" }
     end
 
     local status = M.get_status()

@@ -1,4 +1,0 @@
-allowBuilds:
-  '@parcel/watcher': false
-minimumReleaseAgeExclude:
-  - daisyui@5.7.21

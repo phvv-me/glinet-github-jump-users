@@ -1,207 +1,164 @@
-<div class="gjju gj:flex gj:flex-col gj:gap-4" data-theme="glinet">
-  <gl-title title="GitHub Jump Users" />
-  <p class="gj:text-sm gj:opacity-70">
-    See exactly which GitHub identities can use each router account
-  </p>
+<div class="github-jump-users">
+  <gl-title title="GitHub Jump Users">
+    <gl-button
+      class="main-action"
+      type="primary"
+      :loading="working"
+      @click="syncUsers"
+    >
+      Sync GitHub keys
+    </gl-button>
+  </gl-title>
 
-  <div v-if="error" class="gj-alert gj-alert-error" role="alert">
-    <span>{{ error }}</span>
-  </div>
-  <div v-if="notice" class="gj-alert gj-alert-success" role="status">
-    <span>{{ notice }}</span>
-  </div>
-  <div v-if="loading" class="gj-card gj:bg-base-100 gj:p-6">
-    <span class="gj-loading gj-loading-spinner gj-loading-sm"></span>
-    Loading router accounts
-  </div>
+  <gl-tips
+    class="layout-notice"
+    tips="Assign GitHub SSH keys to the fixed root or restricted jump account."
+    sign="none"
+  />
+
+  <gl-tips
+    v-if="error"
+    class="layout-notice"
+    :tips="error"
+    state="error"
+  />
+
+  <gl-button v-if="loading" :loading="true" disabled>
+    Loading access list
+  </gl-button>
 
   <template v-else>
-    <div class="gj-stats gj-stats-vertical gj:bg-base-100 gj:shadow-sm gj:md:grid-flow-col">
-      <div class="gj-stat">
-        <div class="gj-stat-title">Router accounts</div>
-        <div class="gj-stat-value">{{ status.account_count }}</div>
-      </div>
-      <div class="gj-stat">
-        <div class="gj-stat-title">GitHub assignments</div>
-        <div class="gj-stat-value">{{ status.member_count }}</div>
-      </div>
-      <div class="gj-stat">
-        <div class="gj-stat-title">Managed keys</div>
-        <div class="gj-stat-value">{{ status.key_count }}</div>
-      </div>
-    </div>
+      <el-tabs v-model="activeAccount" class="is-card access-tabs" type="card">
+        <el-tab-pane
+          v-for="account in status.accounts"
+          :key="account.username"
+          :label="`${account.username} (${account.members.length})`"
+          :name="account.username"
+        >
+          <div class="account-pane">
+            <gl-tips
+              class="account-summary"
+              :tips="account.mode === 'admin'
+                ? `${account.label}. Full router administration.`
+                : `${account.label}. Restricted jump access to reachable SSH targets.`"
+              :state="account.mode === 'admin' ? 'warning' : 'success'"
+              sign="status"
+            />
 
-    <div class="gj-alert gj-alert-warning" role="alert">
-      <div>
-        <strong>Any target is enabled</strong>
-        <p class="gj:mt-1 gj:text-sm">
-          Restricted jump users can open TCP connections to every destination reachable from this router, including router-local network services. They still cannot open a router shell.
-        </p>
-      </div>
-    </div>
+            <div class="member-list-title">
+              <span>GitHub users</span>
+              <span class="btn-text" @click="showAddDialog(account.username)">
+                <span class="iconfont icon-plus"></span>
+                Add GitHub user
+              </span>
+            </div>
 
-    <section class="gj-card gj:bg-base-100 gj:p-5 gj:shadow-sm">
-      <h2 class="gj:mb-4 gj:text-lg gj:font-semibold">Connection settings</h2>
-      <div class="gj:grid gj:gap-3 gj:md:grid-cols-2">
-        <label>
-          <span class="gj:mb-1 gj:text-xs gj:opacity-70">Public hostname</span>
-          <input v-model.trim="settings.endpoint" class="gj-input gj-input-bordered gj:w-full" type="text" />
-        </label>
-        <label>
-          <span class="gj:mb-1 gj:text-xs gj:opacity-70">SSH port</span>
-          <input v-model.number="settings.ssh_port" class="gj-input gj-input-bordered gj:w-full" min="1" max="65535" type="number" />
-        </label>
-      </div>
-      <button class="gj-btn gj-btn-primary gj:mt-4" :disabled="working" @click="saveSettings">
-        Save settings
-      </button>
-    </section>
+            <gl-table :data="account.members" empty-text="No GitHub users assigned">
+              <gl-table-column label="GitHub user" min-width="180">
+                <template slot-scope="scope">
+                  <a
+                    :href="`https://github.com/${scope.row.github}`"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {{ scope.row.github }}
+                  </a>
+                </template>
+              </gl-table-column>
+              <gl-table-column label="Keys" min-width="150">
+                <template slot-scope="scope">
+                  {{ scope.row.key_count }}
+                  {{ scope.row.key_types.join(", ") || "pending" }}
+                </template>
+              </gl-table-column>
+              <gl-table-column label="Actions" width="100" align="right">
+                <template slot-scope="scope">
+                  <gl-dropdown :dropdown-key="`${account.username}-${scope.row.github}`">
+                    <gl-dropdown-item @click="showConfig(account, scope.row)">
+                      <span class="iconfont icon-set-config"></span>
+                      SSH config
+                    </gl-dropdown-item>
+                    <gl-dropdown-item divided @click="removeMember(account, scope.row)">
+                      <span class="iconfont icon-delete"></span>
+                      Remove
+                    </gl-dropdown-item>
+                  </gl-dropdown>
+                </template>
+              </gl-table-column>
+            </gl-table>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
 
-    <div class="gj:grid gj:gap-4 gj:lg:grid-cols-2">
-      <section class="gj-card gj:bg-base-100 gj:p-5 gj:shadow-sm">
-        <h2 class="gj:text-lg gj:font-semibold">Create a restricted router account</h2>
-        <p class="gj:my-2 gj:text-sm gj:opacity-70">
-          The account is locked and every managed key is limited to the forced jump command
-        </p>
-        <div class="gj:grid gj:gap-3 gj:md:grid-cols-2">
-          <label>
-            <span class="gj:mb-1 gj:text-xs gj:opacity-70">Router username</span>
-            <input v-model.trim="accountForm.username" class="gj-input gj-input-bordered gj:w-full" />
-          </label>
-          <label>
-            <span class="gj:mb-1 gj:text-xs gj:opacity-70">Display label</span>
-            <input v-model.trim="accountForm.label" class="gj-input gj-input-bordered gj:w-full" />
-          </label>
-        </div>
-        <button class="gj-btn gj-btn-primary gj:mt-4" :disabled="working" @click="createAccount">
-          Create account
-        </button>
-      </section>
-
-      <section class="gj-card gj:bg-base-100 gj:p-5 gj:shadow-sm">
-        <h2 class="gj:mb-3 gj:text-lg gj:font-semibold">Assign a GitHub user</h2>
-        <div class="gj:grid gj:gap-3 gj:md:grid-cols-2">
-          <label>
-            <span class="gj:mb-1 gj:text-xs gj:opacity-70">Router account</span>
-            <select v-model="memberForm.account" class="gj-select gj-select-bordered gj:w-full">
-              <option v-for="account in status.accounts" :key="account.username" :value="account.username">
-                {{ account.label }}  {{ account.username }}
-              </option>
-            </select>
-          </label>
-          <label>
-            <span class="gj:mb-1 gj:text-xs gj:opacity-70">GitHub username</span>
-            <input v-model.trim="memberForm.github" class="gj-input gj-input-bordered gj:w-full" />
-          </label>
-          <label>
-            <span class="gj:mb-1 gj:text-xs gj:opacity-70">Target SSH username</span>
-            <input v-model.trim="memberForm.target_user" class="gj-input gj-input-bordered gj:w-full" />
-          </label>
-          <label>
-            <span class="gj:mb-1 gj:text-xs gj:opacity-70">Private key path on their computer</span>
-            <input v-model.trim="memberForm.identity_file" class="gj-input gj-input-bordered gj:w-full" />
-          </label>
-        </div>
-        <button class="gj-btn gj-btn-primary gj:mt-4" :disabled="working" @click="addMember">
-          Assign and activate
-        </button>
-      </section>
-    </div>
-
-    <header class="gj:flex gj:flex-wrap gj:items-end gj:justify-between gj:gap-3">
-      <div>
-        <h2 class="gj:text-xl gj:font-semibold">Router accounts and access</h2>
-        <p class="gj:text-sm gj:opacity-70">Last key update {{ formatTime(status.updated_at) }}</p>
-      </div>
-      <div class="gj:flex gj:gap-2">
-        <button class="gj-btn gj-btn-outline" :disabled="working" @click="loadStatus">Refresh state</button>
-        <button class="gj-btn gj-btn-primary" :disabled="working" @click="syncUsers">
-          <span v-if="working" class="gj-loading gj-loading-spinner gj-loading-xs"></span>
-          {{ working ? "Working" : "Sync keys from GitHub" }}
-        </button>
-      </div>
-    </header>
-    <p class="gj:text-sm gj:opacity-70">
-      Refresh state only rereads this router. Sync keys downloads every assigned GitHub user's current public keys and updates access.
-    </p>
-
-    <section v-for="account in status.accounts" :key="account.username" class="gj-card gj:bg-base-100 gj:p-5 gj:shadow-sm">
-      <header class="gj:flex gj:flex-wrap gj:items-center gj:justify-between gj:gap-3">
-        <div>
-          <h3 class="gj:text-lg gj:font-semibold">{{ account.label }}</h3>
-          <p class="gj:text-sm gj:opacity-70">
-            {{ account.username }} on port {{ status.ssh_port }}
-          </p>
-        </div>
-        <div class="gj:flex gj:items-center gj:gap-2">
-          <span class="gj-badge" :class="account.mode === 'admin' ? 'gj-badge-error' : 'gj-badge-success'">
-            {{ account.mode === "admin" ? "Full router administrator" : "Restricted jump only" }}
-          </span>
-          <button v-if="account.removable" class="gj-btn gj-btn-error gj-btn-outline gj-btn-sm" @click="removeAccount(account)">
-            Remove account
-          </button>
-        </div>
-      </header>
-
-      <p v-if="account.unmanaged_key_count" class="gj:mt-3 gj:text-sm gj:opacity-70">
-        {{ account.unmanaged_key_count }} key entries are managed outside this plugin and are preserved during sync
-      </p>
-
-      <div class="gj:mt-4 gj:overflow-x-auto">
-        <table class="gj-table">
-          <thead>
-            <tr>
-              <th>GitHub user</th>
-              <th>Target SSH user</th>
-              <th>Active keys</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="!account.members.length">
-              <td class="gj:opacity-70" colspan="4">No GitHub users are assigned</td>
-            </tr>
-            <tr v-for="member in account.members" :key="member.github">
-              <td>
-                <a class="gj:font-semibold gj:text-primary" :href="`https://github.com/${member.github}`" target="_blank" rel="noopener noreferrer">
-                  {{ member.github }}
-                </a>
-              </td>
-              <td>{{ member.target_user }}</td>
-              <td>{{ member.key_count }}  {{ member.key_types.join(", ") || "keys pending" }}</td>
-              <td>
-                <div class="gj:flex gj:gap-2">
-                  <button class="gj-btn gj-btn-outline gj-btn-sm" @click="showConfig(account, member)">SSH config</button>
-                  <button class="gj-btn gj-btn-error gj-btn-outline gj-btn-sm" @click="removeMember(account, member)">Remove</button>
+      <el-dialog
+        class="member-dialog"
+        :visible="showAddUser"
+        title="Add GitHub user"
+        :close-on-click-modal="false"
+        @update:visible="showAddUser = $event"
+      >
+        <div class="dialog-main">
+          <gl-tips
+            v-if="activeAccount === 'root'"
+            class="dialog-warning"
+            tips="This grants full router administration."
+            state="warning"
+          />
+          <el-form ref="memberForm" :model="memberForm">
+            <ul class="dialog-form">
+              <li>
+                <div>GitHub username</div>
+                <div>
+                  <el-form-item prop="github" :rules="githubRules">
+                    <el-input
+                      v-model.trim="memberForm.github"
+                      maxlength="39"
+                      placeholder="GitHub username"
+                    />
+                  </el-form-item>
                 </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section v-if="selectedConfig" class="gj-card gj:bg-base-100 gj:p-5 gj:shadow-sm">
-      <header class="gj:flex gj:items-center gj:justify-between gj:gap-3">
-        <div>
-          <h3 class="gj:text-lg gj:font-semibold">SSH configuration</h3>
-          <p class="gj:text-sm gj:opacity-70">{{ selectedConfigTitle }}</p>
+              </li>
+            </ul>
+          </el-form>
         </div>
-        <button class="gj-btn gj-btn-primary" @click="copyConfig">Copy configuration</button>
-      </header>
-      <p class="gj:my-3 gj:text-sm gj:opacity-70">
-        Paste this into ~/.ssh/config. Replace TARGET_HOST_OR_IP in restricted jump templates.
-      </p>
-      <div class="gj-mockup-code">
-        <pre data-prefix=""><code>{{ selectedConfig }}</code></pre>
-      </div>
-    </section>
+        <template slot="footer">
+          <div class="dialog-actions">
+            <gl-button class="dialog-button" @click="showAddUser = false">
+              Cancel
+            </gl-button>
+            <gl-button
+              class="dialog-button"
+              type="primary"
+              :loading="working"
+              @click="addMember"
+            >
+              Confirm
+            </gl-button>
+          </div>
+        </template>
+      </el-dialog>
 
-    <section class="gj-card gj:bg-base-100 gj:p-5 gj:shadow-sm">
-      <h3 class="gj:mb-3 gj:text-lg gj:font-semibold">Restricted account protections</h3>
-      <ul class="gj:list-disc gj:space-y-1 gj:pl-5">
-        <li v-for="item in status.protections" :key="item">{{ item }}</li>
-      </ul>
-    </section>
+      <gl-drawer
+        :visible="Boolean(selectedConfig)"
+        title="SSH configuration"
+        @update:visible="closeConfig"
+      >
+        <p class="config-title">{{ selectedConfigTitle }}</p>
+        <p class="config-help">Paste into ~/.ssh/config and replace {target}.</p>
+        <el-input
+          type="textarea"
+          :value="selectedConfig"
+          readonly
+          :autosize="{ minRows: 8, maxRows: 18 }"
+        />
+        <template slot="footer">
+          <div class="drawer-actions">
+            <gl-button class="dialog-button" @click="closeConfig">Close</gl-button>
+            <gl-button class="dialog-button" type="primary" @click="copyConfig">
+              Copy
+            </gl-button>
+          </div>
+        </template>
+      </gl-drawer>
   </template>
 </div>

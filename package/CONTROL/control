@@ -4,7 +4,7 @@ Architecture: all
 Maintainer: Pedro Valois
 Section: net
 Priority: optional
-Depends: curl, dropbear
+Depends: curl, dropbear, gl-oui-rpc, gl-sdk4-ui-core
 Conflicts: cvlab-jump
 Replaces: cvlab-jump
 Description: GitHub-backed router and jump account access with a native GL.iNet admin page.

@@ -6,32 +6,32 @@
       loading: true,
       working: false,
       error: "",
-      notice: "",
       selectedConfig: "",
       selectedConfigTitle: "",
-      status: { accounts: [], protections: [] },
-      settings: { endpoint: "", ssh_port: 22 },
-      accountForm: { username: "", label: "" },
+      activeAccount: "root",
+      showAddUser: false,
+      status: { accounts: [] },
       memberForm: {
-        account: "jump",
         github: "",
-        target_user: "",
-        identity_file: "~/.ssh/id_ed25519",
       },
     };
   },
 
-  beforeCreate() {
-    if (document.getElementById("github-jump-users-style")) return;
-    const style = document.createElement("link");
-    style.id = "github-jump-users-style";
-    style.rel = "stylesheet";
-    style.href = "/theme/github-jump-users.css?v=0.0.1";
-    document.head.appendChild(style);
-  },
-
   created() {
     this.loadStatus();
+  },
+
+  computed: {
+    githubRules() {
+      return [
+        { required: true, message: "Enter a GitHub username", trigger: "blur" },
+        {
+          pattern: /^(?!-)(?!.*--)[A-Za-z0-9-]{0,38}[A-Za-z0-9]$/,
+          message: "Enter a valid GitHub username",
+          trigger: "blur",
+        },
+      ];
+    },
   },
 
   methods: {
@@ -46,23 +46,19 @@
 
     applyStatus(status) {
       this.status = status;
-      this.settings = {
-        endpoint: status.endpoint,
-        ssh_port: status.ssh_port,
-      };
-      if (!status.accounts.some(({ username }) => username === this.memberForm.account))
-        this.memberForm.account = status.accounts[0]?.username || "";
+      if (!status.accounts.some(({ username }) => username === this.activeAccount))
+        this.activeAccount = status.accounts[0]?.username || "root";
     },
 
     async perform(operation, successMessage) {
       this.working = true;
       this.error = "";
-      this.notice = "";
       try {
         const status = await operation;
         if (!status.success) throw new Error(status.error || "The request failed");
         this.applyStatus(status);
-        this.notice = successMessage;
+        this.$message.closeAll();
+        this.$message.success(successMessage);
         return true;
       } catch (error) {
         this.error = error?.message || "The request failed";
@@ -73,13 +69,10 @@
     },
 
     async loadStatus() {
-      this.loading = true;
-      this.error = "";
-      this.notice = "";
       try {
         this.applyStatus(await this.rpc("get_status"));
-      } catch {
-        this.error = "Could not load the router account registry";
+      } catch (error) {
+        this.error = error?.message || "Could not load access";
       } finally {
         this.loading = false;
       }
@@ -88,91 +81,84 @@
     syncUsers() {
       return this.perform(
         this.rpc("sync_users"),
-        "All configured GitHub keys are current",
+        "GitHub keys synchronized",
       );
     },
 
-    saveSettings() {
-      return this.perform(
-        this.rpc("save_settings", this.settings),
-        "Connection settings were saved",
-      );
-    },
-
-    async createAccount() {
-      const created = await this.perform(
-        this.rpc("create_account", this.accountForm),
-        "The restricted router account was created",
-      );
-      if (!created) return;
-      this.memberForm.account = this.accountForm.username;
-      this.accountForm = { username: "", label: "" };
-    },
-
-    removeAccount(account) {
-      if (!window.confirm(`Remove the router account ${account.username} and revoke its jump access?`)) return;
-      return this.perform(
-        this.rpc("remove_account", { username: account.username }),
-        "The router account was removed",
-      );
+    showAddDialog(account) {
+      this.activeAccount = account;
+      this.memberForm.github = "";
+      this.showAddUser = true;
+      this.$nextTick(() => this.$refs.memberForm.clearValidate());
     },
 
     async addMember() {
+      if (!await this.$refs.memberForm.validate()) return;
       const params = {
-        ...this.memberForm,
+        account: this.activeAccount,
+        github: this.memberForm.github,
         confirm_root: false,
       };
+      const assign = async () => {
+        if (!await this.perform(this.rpc("add_member", params), "User assigned")) return;
+        this.memberForm.github = "";
+        this.showAddUser = false;
+      };
       if (params.account === "root") {
-        params.confirm_root = window.confirm(
-          `This grants ${params.github} full router administration as root. Continue?`,
+        return this.$alert(
+          `Grant ${params.github} full router administration?`,
+          {
+            confirmText: "Grant root access",
+            confirmBtnType: "error",
+            confirmAutoClose: false,
+            onConfirm: async ({ close }) => {
+              params.confirm_root = true;
+              await assign();
+              if (!this.error) close();
+            },
+          },
         );
-        if (!params.confirm_root) return;
       }
-      const added = await this.perform(
-        this.rpc("add_member", params),
-        "The GitHub user was assigned and their keys were activated",
-      );
-      if (!added) return;
-      this.memberForm.github = "";
-      this.memberForm.target_user = "";
+      return assign();
     },
 
     removeMember(account, member) {
-      if (!window.confirm(`Remove ${member.github} from ${account.username}?`)) return;
-      return this.perform(
-        this.rpc("remove_member", {
-          account: account.username,
-          github: member.github,
-        }),
-        "The GitHub user was removed and their managed keys were revoked",
+      return this.$alert(
+        `Remove ${member.github} from ${account.username}?`,
+        {
+          confirmText: "Remove",
+          confirmBtnType: "error",
+          confirmAutoClose: false,
+          onConfirm: async ({ close }) => {
+            await this.perform(
+              this.rpc("remove_member", {
+                account: account.username,
+                github: member.github,
+              }),
+              "User removed",
+            );
+            if (!this.error) close();
+          },
+        },
       );
     },
 
-    connectionConfig(account, member) {
-      const slug = `${account.username}-${member.github}`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, "-");
-      const alias = `flint-${slug}`;
+    connectionConfig(account) {
       const lines = [
-        `Host ${alias}`,
+        "Host cvlab",
         `  HostName ${this.status.endpoint}`,
         `  Port ${this.status.ssh_port}`,
         `  User ${account.username}`,
-        `  IdentityFile ${member.identity_file}`,
-        "  IdentitiesOnly yes",
         "  RequestTTY no",
       ];
 
       if (account.mode === "jump") {
         lines.push(
           "",
-          `Host lab-target-${member.github.toLowerCase()}`,
-          "  HostName TARGET_HOST_OR_IP",
+          "Host {target}",
+          "  HostName {target}",
           "  Port 22",
-          `  User ${member.target_user}`,
-          `  IdentityFile ${member.identity_file}`,
-          "  IdentitiesOnly yes",
-          `  ProxyCommand ssh ${alias} connect %h %p`,
+          "  ProxyCommand ssh cvlab connect %h %p",
         );
       }
       return lines.join("\n");
@@ -180,29 +166,24 @@
 
     showConfig(account, member) {
       this.selectedConfigTitle = `${account.username} for ${member.github}`;
-      this.selectedConfig = this.connectionConfig(account, member);
+      this.selectedConfig = this.connectionConfig(account);
     },
 
-    async copyConfig() {
-      try {
-        await navigator.clipboard.writeText(this.selectedConfig);
-      } catch {
-        const textarea = document.createElement("textarea");
-        textarea.value = this.selectedConfig;
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
-      }
-      this.notice = "SSH configuration copied";
+    closeConfig() {
+      this.selectedConfig = "";
+      this.selectedConfigTitle = "";
     },
 
-    formatTime(timestamp) {
-      return timestamp
-        ? new Date(timestamp * 1000).toLocaleString()
-        : "Not synchronized yet";
+    copyConfig() {
+      return this.$copyText(this.selectedConfig)
+        .then(() => {
+          this.$message.closeAll();
+          this.$message.success("SSH configuration copied");
+        })
+        .catch((error) => {
+          this.error = error?.message || "Could not copy SSH configuration";
+        });
     },
+
   },
 })
