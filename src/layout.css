@@ -12,6 +12,41 @@
   margin: 20px 0;
 }
 
+.github-jump-users .settings-panel {
+  padding: 20px;
+  margin-bottom: 20px;
+  background: var(--background-card);
+  border-radius: 5px;
+}
+
+.github-jump-users .settings-title {
+  margin-bottom: 15px;
+  color: var(--text-title);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.github-jump-users .settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.github-jump-users .settings-grid label > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-weak);
+  font-size: 13px;
+}
+
+.github-jump-users .settings-targets {
+  grid-column: 1 / -1;
+}
+
+.github-jump-users .settings-tip {
+  margin: 15px 0;
+}
+
 .github-jump-users .account-pane {
   padding: 20px;
 }
@@ -90,6 +125,10 @@
 }
 
 @media screen and (max-width: 480px) {
+  .github-jump-users .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
   .github-jump-users .dialog-form > li {
     align-items: stretch;
     flex-direction: column;

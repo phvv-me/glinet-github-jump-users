@@ -21,7 +21,7 @@ setup_account() {
     addgroup "$username" jumpusers >/dev/null 2>&1 || true
   fi
 
-  passwd -l "$username" >/dev/null 2>&1 || true
+  passwd -l "$username" >/dev/null
   mkdir -p "$(dirname "$key_file")"
   test -e "$key_file" || touch "$key_file"
   chown root:root "/home/$username" "$(dirname "$key_file")"

@@ -2,6 +2,8 @@
 set -eu
 set -f
 
+. /lib/functions.sh
+
 deny() {
   logger -t github-jump-users "denied user=${LOGNAME:-unknown} source=${SSH_CONNECTION:-unknown} command=${SSH_ORIGINAL_COMMAND:-none}"
   exit 1
@@ -22,6 +24,25 @@ case "$port" in
 esac
 test "$port" -ge 1 2>/dev/null || deny
 test "$port" -le 65535 2>/dev/null || deny
+
+allowed=0
+allow_target() {
+  test "$1" = "$host $port" && allowed=1
+  return 0
+}
+
+config_load github-jump-users
+config_list_foreach main target allow_target
+test "$allowed" = 1 || deny
+
+case "$host" in
+  localhost|localhost.*|0.0.0.0|127.*|::|::1) deny ;;
+esac
+
+for address in $(ip -o address show 2>/dev/null | awk '{ sub(/\/.*/, "", $4); print $4 }')
+do
+  test "$host" != "$address" || deny
+done
 
 logger -t github-jump-users "connect user=${LOGNAME:-unknown} source=${SSH_CONNECTION:-unknown} target=$host port=$port"
 exec nc "$host" "$port"

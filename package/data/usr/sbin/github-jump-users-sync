@@ -5,6 +5,17 @@ set -e
 
 requested=${1:-all}
 failed=
+lockdir=/var/lock/github-jump-users
+
+if test "${GJJU_LOCK_HELD:-0}" != 1
+then
+  if ! mkdir "$lockdir" 2>/dev/null
+  then
+    echo "another GitHub jump-user operation is running" >&2
+    exit 5
+  fi
+  trap 'rmdir "$lockdir" 2>/dev/null || true' EXIT HUP INT TERM
+fi
 
 sync_account() {
   local section username mode key_file members marker tempfile unmanaged managed
@@ -37,7 +48,12 @@ sync_account() {
   marker="gjju-$username-"
   mkdir -p "$(dirname "$key_file")"
   test -e "$key_file" || touch "$key_file"
-  awk -v marker="$marker" 'index($NF, marker) != 1' "$key_file" > "$unmanaged"
+  if test "$mode" = admin
+  then
+    awk -v marker="$marker" 'index($NF, marker) != 1' "$key_file" > "$unmanaged"
+  else
+    : > "$unmanaged"
+  fi
 
   if test -n "$members"
   then

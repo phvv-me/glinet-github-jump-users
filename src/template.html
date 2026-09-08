@@ -28,6 +28,42 @@
   </gl-button>
 
   <template v-else>
+      <div class="settings-panel">
+        <div class="settings-title">Connection settings</div>
+        <div class="settings-grid">
+          <label>
+            <span>Router DDNS or Tailscale hostname</span>
+            <el-input v-model.trim="settings.endpoint" placeholder="example.glddns.com" />
+          </label>
+          <label>
+            <span>SSH alias</span>
+            <el-input v-model.trim="settings.ssh_alias" placeholder="flint-home" />
+          </label>
+          <label>
+            <span>Router SSH port</span>
+            <el-input v-model.number="settings.ssh_port" type="number" />
+          </label>
+          <label class="settings-targets">
+            <span>Allowed targets, one HOST:PORT per line</span>
+            <el-input
+              v-model="settings.targets"
+              type="textarea"
+              :autosize="{ minRows: 2, maxRows: 8 }"
+              placeholder="pedro-home:22"
+            />
+          </label>
+        </div>
+        <gl-tips
+          class="settings-tip"
+          tips="The jump account is denied unless the requested destination exactly matches this allowlist."
+          state="warning"
+          sign="status"
+        />
+        <gl-button type="primary" :loading="working" @click="saveSettings">
+          Save connection settings
+        </gl-button>
+      </div>
+
       <el-tabs v-model="activeAccount" class="is-card access-tabs" type="card">
         <el-tab-pane
           v-for="account in status.accounts"
@@ -144,7 +180,7 @@
         @update:visible="closeConfig"
       >
         <p class="config-title">{{ selectedConfigTitle }}</p>
-        <p class="config-help">Paste into ~/.ssh/config and replace {target}.</p>
+        <p class="config-help">Paste into ~/.ssh/config and replace the braced target values.</p>
         <el-input
           type="textarea"
           :value="selectedConfig"

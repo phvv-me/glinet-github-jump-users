@@ -4,6 +4,48 @@ local uci = require "uci"
 local M = {}
 local config_name = "github-jump-users"
 
+local function configured_targets(cursor)
+    local stored = cursor:get(config_name, "main", "target") or {}
+    if type(stored) == "string" then
+        stored = { stored }
+    end
+    local targets = {}
+    for _, target in ipairs(stored) do
+        local host, port = target:match("^(.*) (%d+)$")
+        if host and port then
+            targets[#targets + 1] = host .. ":" .. port
+        end
+    end
+    table.sort(targets)
+    return targets
+end
+
+local function validate_targets(targets)
+    if type(targets) ~= "table" or #targets > 32 then
+        return nil, "Provide at most 32 allowed targets"
+    end
+    local stored = {}
+    local seen = {}
+    for _, target in ipairs(targets) do
+        if type(target) ~= "string" or #target > 320 then
+            return nil, "Invalid allowed target"
+        end
+        local host, port_text = target:match("^(.*):(%d+)$")
+        local port = tonumber(port_text)
+        if not host or host == "" or host:match("^%-") or
+            host:match("[^A-Za-z0-9._:%%-]") or not port or
+            port < 1 or port > 65535 then
+            return nil, "Use HOST:PORT for every allowed target"
+        end
+        local canonical = host .. " " .. tostring(port)
+        if not seen[canonical] then
+            stored[#stored + 1] = canonical
+            seen[canonical] = true
+        end
+    end
+    return stored
+end
+
 local function run(argv, timeout)
     local process, err = ngx.pipe.spawn(
         argv,
@@ -123,9 +165,50 @@ function M.get_status()
     return {
         endpoint = cursor:get(config_name, "main", "endpoint") or "",
         ssh_port = tonumber(cursor:get(config_name, "main", "ssh_port")) or 22,
+        ssh_alias = cursor:get(config_name, "main", "ssh_alias") or "flint-home",
+        targets = configured_targets(cursor),
         updated_at = updated_at,
         accounts = accounts
     }
+end
+
+function M.save_settings(params)
+    params = params or {}
+    local endpoint = params.endpoint or ""
+    local ssh_alias = params.ssh_alias or ""
+    local ssh_port = tonumber(params.ssh_port)
+    local targets, target_error = validate_targets(params.targets)
+
+    if endpoint == "" or #endpoint > 253 or endpoint:match("^%-") or
+        endpoint:match("[^A-Za-z0-9._:%%-]") then
+        return { success = false, error = "Invalid Tailscale hostname or address" }
+    end
+    if ssh_alias == "" or #ssh_alias > 64 or ssh_alias:match("^%-") or
+        ssh_alias:match("[^A-Za-z0-9._-]") then
+        return { success = false, error = "Invalid SSH alias" }
+    end
+    if not ssh_port or ssh_port < 1 or ssh_port > 65535 or ssh_port % 1 ~= 0 then
+        return { success = false, error = "Invalid SSH port" }
+    end
+    if not targets then
+        return { success = false, error = target_error }
+    end
+
+    local cursor = uci.cursor()
+    cursor:set(config_name, "main", "endpoint", endpoint)
+    cursor:set(config_name, "main", "ssh_port", tostring(ssh_port))
+    cursor:set(config_name, "main", "ssh_alias", ssh_alias)
+    if #targets == 0 then
+        cursor:delete(config_name, "main", "target")
+    else
+        cursor:set(config_name, "main", "target", targets)
+    end
+    cursor:commit(config_name)
+    fs.sync()
+
+    local status = M.get_status()
+    status.success = true
+    return status
 end
 
 function M.add_member(params)

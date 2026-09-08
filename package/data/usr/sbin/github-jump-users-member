@@ -11,6 +11,14 @@ member_section=
 member_github=
 account_mode=
 key_file=
+lockdir=/var/lock/github-jump-users
+
+if ! mkdir "$lockdir" 2>/dev/null
+then
+  echo "another GitHub jump-user operation is running" >&2
+  exit 5
+fi
+trap 'rmdir "$lockdir" 2>/dev/null || true' EXIT HUP INT TERM
 
 find_account() {
   local section existing
@@ -68,7 +76,7 @@ case "$action" in
     uci set "github-jump-users.$section.github=$github"
     uci commit github-jump-users
 
-    if ! /usr/sbin/github-jump-users-sync "$account" >/dev/null
+    if ! GJJU_LOCK_HELD=1 /usr/sbin/github-jump-users-sync "$account" >/dev/null
     then
       uci -q delete "github-jump-users.$section"
       uci commit github-jump-users
@@ -82,21 +90,17 @@ case "$action" in
       echo "GitHub user is not assigned to this account" >&2
       exit 3
     }
-    tempfile="$key_file.new.$$"
-    trap 'rm -f "$tempfile"' EXIT HUP INT TERM
-    awk -v marker="gjju-$account-$member_github" '$NF != marker' "$key_file" > "$tempfile"
-    if test "$account_mode" = admin
-    then
-      chown root:root "$tempfile"
-      chmod 600 "$tempfile"
-    else
-      chown "root:$(id -g "$account")" "$tempfile"
-      chmod 640 "$tempfile"
-    fi
-    mv "$tempfile" "$key_file"
-    trap - EXIT HUP INT TERM
     uci -q delete "github-jump-users.$member_section"
     uci commit github-jump-users
+    if ! GJJU_LOCK_HELD=1 /usr/sbin/github-jump-users-sync "$account" >/dev/null
+    then
+      section=$(uci add github-jump-users member)
+      uci set "github-jump-users.$section.account=$account"
+      uci set "github-jump-users.$section.github=$member_github"
+      uci commit github-jump-users
+      echo "could not revoke GitHub keys" >&2
+      exit 4
+    fi
     echo REMOVE_OK
     ;;
   *)
