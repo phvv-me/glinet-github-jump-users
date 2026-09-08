@@ -18,6 +18,8 @@ https://github.com/phvv-me/glinet-github-jump-users/releases/latest/download
 
 Apply the source, refresh the package list, search for `glinet-github-jump-users`, and install it. Future released versions appear through the same source.
 
+If an older release remains in the `install user unpacked` state, refresh the package list and upgrade to the latest version. OPKG keeps `/etc/config/github-jump-users` while the newer post-install script completes configuration.
+
 You can also download and install the latest release directly from a router shell.
 
 ```sh

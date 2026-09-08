@@ -44,6 +44,10 @@ grep -q 'save_settings' "$root/package/data/usr/lib/oui-httpd/rpc/github-jump-us
 grep -q 'another GitHub jump-user operation is running' "$root/package/data/usr/sbin/github-jump-users-sync"
 grep -A5 'if test "$mode" = admin' "$root/package/data/usr/sbin/github-jump-users-sync" | grep -q 'awk -v marker='
 ! grep -q 'passwd -l .*|| true' "$root/package/data/usr/sbin/github-jump-users-setup"
+grep -q 'password_is_locked' "$root/package/data/usr/sbin/github-jump-users-setup"
+grep -q "'!'\*|'\*'\*" "$root/package/data/usr/sbin/github-jump-users-setup"
+grep -q 'if ! password_is_locked' "$root/package/data/usr/sbin/github-jump-users-setup"
+grep -q 'nginx reload .*|| true' "$root/package/CONTROL/postinst"
 ! grep -q 'TARGET_HOST_OR_IP\|flint-' "$view_source"
 grep -q 'gl-button' "$view_source"
 grep -q 'gl-table' "$view_source"

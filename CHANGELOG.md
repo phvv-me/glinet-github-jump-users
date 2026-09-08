@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.4
+
+- Treat an already locked BusyBox account as a successful, verified setup state.
+- Keep account setup fail-closed by checking the password field in `/etc/shadow` before and after locking.
+- Do not leave the package unconfigured when an optional nginx reload is unavailable.
+
 ## 0.0.3
 
 - Publish a router-compatible OPKG feed in each GitHub Release.

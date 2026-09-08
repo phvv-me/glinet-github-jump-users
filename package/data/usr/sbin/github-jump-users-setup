@@ -5,6 +5,34 @@ set -e
 
 grep -q '^jumpusers:' /etc/group || addgroup jumpusers
 
+password_is_locked() {
+  local username password
+  username=$1
+  password=$(awk -F: -v account="$username" '
+    $1 == account { print $2; found = 1; exit }
+    END { if (!found) exit 1 }
+  ' /etc/shadow)
+
+  case "$password" in
+    '!'*|'*'*) return 0 ;;
+  esac
+
+  return 1
+}
+
+lock_account() {
+  local username
+  username=$1
+
+  password_is_locked "$username" && return 0
+  passwd -l "$username" >/dev/null
+  if ! password_is_locked "$username"
+  then
+    echo "account $username is not password-locked" >&2
+    return 1
+  fi
+}
+
 setup_account() {
   local section username managed key_file gid
   section=$1
@@ -21,7 +49,7 @@ setup_account() {
     addgroup "$username" jumpusers >/dev/null 2>&1 || true
   fi
 
-  passwd -l "$username" >/dev/null
+  lock_account "$username"
   mkdir -p "$(dirname "$key_file")"
   test -e "$key_file" || touch "$key_file"
   chown root:root "/home/$username" "$(dirname "$key_file")"
