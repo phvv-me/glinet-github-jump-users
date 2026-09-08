@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.3
+
+- Publish a router-compatible OPKG feed in each GitHub Release.
+- Provide a stable custom-source URL for installation and future upgrades from the GL.iNet admin panel.
+
 ## 0.0.2
 
 - Add an administrator-managed destination allowlist for restricted jump connections.
@@ -9,7 +14,7 @@
 - Serialize membership and synchronization changes to prevent concurrent key-file updates.
 - Fail installation if the restricted account cannot be password-locked.
 - Build portable root-owned package archives on GNU and BSD tar.
-- Add GitHub CI, checksummed releases, stable download assets, build provenance, and an OPKG feed.
+- Add GitHub CI, checksummed releases, stable download assets, and build provenance.
 
 ## 0.0.1
 

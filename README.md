@@ -13,7 +13,7 @@ Download `glinet-github-jump-users_all.ipk` and `SHA256SUMS` from the [latest Gi
 For installation through the GL.iNet admin panel, open Applications and Plug-ins, then Manage Sources. Add `phvv_github_jump_users` with this URL.
 
 ```text
-https://phvv-me.github.io/glinet-github-jump-users
+https://github.com/phvv-me/glinet-github-jump-users/releases/latest/download
 ```
 
 Apply the source, refresh the package list, search for `glinet-github-jump-users`, and install it. Future released versions appear through the same source.
@@ -61,6 +61,6 @@ The installable artifact is written to `dist/`.
 
 ## Release
 
-The package uses version-driven releases. Update the matching versions in `package.json` and `package/CONTROL/control`, then push the reviewed change to `main`. CI tests every change. If that version has not been published, the publish workflow creates `v<version>`, attaches versioned and stable-name `.ipk` files, publishes `SHA256SUMS`, and records build provenance. GitHub Pages also republishes the OPKG package feed from every verified `main` build.
+The package uses version-driven releases. Update the matching versions in `package.json` and `package/CONTROL/control`, then push the reviewed change to `main`. CI tests every change. If that version has not been published, the publish workflow creates `v<version>`, attaches versioned and stable-name `.ipk` files, publishes the OPKG feed index and `SHA256SUMS`, and records build provenance.
 
 Do not create release tags manually. A push that keeps an already published version is a tested no-op for the release job.

@@ -33,26 +33,11 @@ class FeedBuilder {
       join(this.feedDirectory, "Packages.gz"),
       gzipSync(packages, { level: 9, mtime: 0 }),
     );
-    writeFileSync(join(this.feedDirectory, "index.html"), this.#indexPage(artifactName));
-
     console.log(this.feedDirectory);
   }
 
   #digest(algorithm, bytes) {
     return createHash(algorithm).update(bytes).digest("hex");
-  }
-
-  #indexPage(artifactName) {
-    return `<!doctype html>
-<html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GL.iNet GitHub Jump Users feed</title>
-<h1>GL.iNet GitHub Jump Users feed</h1>
-<p>Add this URL as an OPKG custom software source.</p>
-<p><code>https://phvv-me.github.io/glinet-github-jump-users</code></p>
-<p><a href="${artifactName}">Download ${artifactName}</a></p>
-`;
   }
 
   #packageIndex(artifactName, bytes) {

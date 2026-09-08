@@ -28,8 +28,8 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Test and build package
-        run: pnpm build
+      - name: Test and build package feed
+        run: pnpm feed
       - name: Read and verify version
         id: version
         shell: bash
@@ -56,18 +56,20 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          artifact="dist/glinet-github-jump-users_${VERSION}_all.ipk"
+          artifact="dist/feed/glinet-github-jump-users_${VERSION}_all.ipk"
           test -f "$artifact"
-          cp "$artifact" dist/glinet-github-jump-users_all.ipk
-          cd dist
+          cp "$artifact" dist/feed/glinet-github-jump-users_all.ipk
+          cd dist/feed
           sha256sum "glinet-github-jump-users_${VERSION}_all.ipk" glinet-github-jump-users_all.ipk > SHA256SUMS
       - name: Attest release assets
         if: steps.release.outputs.exists == 'false'
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
         with:
           subject-path: |
-            dist/*.ipk
-            dist/SHA256SUMS
+            dist/feed/*.ipk
+            dist/feed/Packages
+            dist/feed/Packages.gz
+            dist/feed/SHA256SUMS
       - name: Publish GitHub release
         if: steps.release.outputs.exists == 'false'
         env:
@@ -76,9 +78,11 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           gh release create "$TAG" \
-            dist/glinet-github-jump-users_${VERSION}_all.ipk \
-            dist/glinet-github-jump-users_all.ipk \
-            dist/SHA256SUMS \
+            dist/feed/glinet-github-jump-users_${VERSION}_all.ipk \
+            dist/feed/glinet-github-jump-users_all.ipk \
+            dist/feed/Packages \
+            dist/feed/Packages.gz \
+            dist/feed/SHA256SUMS \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "glinet-github-jump-users $VERSION" \

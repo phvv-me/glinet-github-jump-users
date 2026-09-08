@@ -1,6 +1,6 @@
 {
   "name": "glinet-github-jump-users",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "packageManager": "pnpm@11.23.0",
   "scripts": {
