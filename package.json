@@ -6,7 +6,8 @@
   "scripts": {
     "view": "node scripts/build-view.mjs",
     "test": "pnpm run view && sh scripts/test.sh",
-    "build": "pnpm run test && sh scripts/build.sh"
+    "build": "pnpm run test && sh scripts/build.sh",
+    "feed": "pnpm run build && node scripts/build-feed.mjs"
   },
   "devDependencies": {
     "vue-template-compiler": "2.7.16",

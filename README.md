@@ -10,6 +10,14 @@ The `jump` account cannot open a router shell, request a PTY, or use SSH forward
 
 Download `glinet-github-jump-users_all.ipk` and `SHA256SUMS` from the [latest GitHub release](https://github.com/phvv-me/glinet-github-jump-users/releases/latest). Verify the checksum, copy the package to the router, and install it as `root`.
 
+For installation through the GL.iNet admin panel, open Applications and Plug-ins, then Manage Sources. Add `phvv_github_jump_users` with this URL.
+
+```text
+https://phvv-me.github.io/glinet-github-jump-users
+```
+
+Apply the source, refresh the package list, search for `glinet-github-jump-users`, and install it. Future released versions appear through the same source.
+
 You can also download and install the latest release directly from a router shell.
 
 ```sh
@@ -53,6 +61,6 @@ The installable artifact is written to `dist/`.
 
 ## Release
 
-The package uses version-driven releases. Update the matching versions in `package.json` and `package/CONTROL/control`, then push the reviewed change to `main`. CI tests every change. If that version has not been published, the publish workflow creates `v<version>`, attaches versioned and stable-name `.ipk` files, publishes `SHA256SUMS`, and records build provenance.
+The package uses version-driven releases. Update the matching versions in `package.json` and `package/CONTROL/control`, then push the reviewed change to `main`. CI tests every change. If that version has not been published, the publish workflow creates `v<version>`, attaches versioned and stable-name `.ipk` files, publishes `SHA256SUMS`, and records build provenance. GitHub Pages also republishes the OPKG package feed from every verified `main` build.
 
 Do not create release tags manually. A push that keeps an already published version is a tested no-op for the release job.

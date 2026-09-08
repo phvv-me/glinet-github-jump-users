@@ -33,14 +33,14 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Test package
         run: pnpm test
-      - name: Build package
-        run: pnpm build
+      - name: Build package feed
+        run: pnpm feed
       - name: Record checksum
-        run: sha256sum dist/*.ipk
+        run: sha256sum dist/feed/*.ipk
       - name: Upload package artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: glinet-github-jump-users-node-${{ matrix.node }}
-          path: dist/*.ipk
+          path: dist/feed
           if-no-files-found: error
           retention-days: 14

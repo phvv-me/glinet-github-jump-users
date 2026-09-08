@@ -8,8 +8,8 @@
 - Preserve unmanaged administrator keys while enforcing forced commands for every jump key.
 - Serialize membership and synchronization changes to prevent concurrent key-file updates.
 - Fail installation if the restricted account cannot be password-locked.
-- Build reproducible root-owned package archives on GNU and BSD tar.
-- Add GitHub CI, checksummed releases, stable download assets, and build provenance.
+- Build portable root-owned package archives on GNU and BSD tar.
+- Add GitHub CI, checksummed releases, stable download assets, build provenance, and an OPKG feed.
 
 ## 0.0.1
 
