@@ -2,9 +2,6 @@
 set -e
 set -f
 
-. /lib/functions.sh
-. /lib/functions/network.sh
-
 deny() {
   logger -t github-jump-users "denied user=${LOGNAME:-unknown} source=${SSH_CONNECTION:-unknown} command=${SSH_ORIGINAL_COMMAND:-none}"
   exit 1
@@ -26,26 +23,30 @@ esac
 test "$port" -ge 1 2>/dev/null || deny
 test "$port" -le 65535 2>/dev/null || deny
 
-lan_devices=
-add_lan_device() {
-  local device network
-  network=$1
-  network_get_device device "$network" || return 0
-  test -n "$device" && append lan_devices "$device"
-  return 0
-}
+lan_devices=br-lan
+lan_zone=$(uci -q show firewall 2>/dev/null |
+  sed -n "s/^\(firewall\..*\)\.name='lan'$/\1/p" |
+  sed -n '1p')
 
-collect_lan_zone() {
-  local name section
-  section=$1
-  config_get name "$section" name
-  test "$name" = lan || return 0
-  config_list_foreach "$section" network add_lan_device
-}
+if test -n "$lan_zone"
+then
+  lan_networks=$(uci -q get "$lan_zone.network" 2>/dev/null || true)
+  lan_devices="$lan_devices $(uci -q get "$lan_zone.device" 2>/dev/null || true)"
 
-config_load firewall
-config_foreach collect_lan_zone zone
-test -n "$lan_devices" || deny
+  for network in $lan_networks
+  do
+    device=$(uci -q get "network.$network.device" 2>/dev/null || true)
+    if test -z "$device"
+    then
+      device=$(uci -q get "network.$network.ifname" 2>/dev/null || true)
+    fi
+    if test "$(uci -q get "network.$network.type" 2>/dev/null || true)" = bridge
+    then
+      device="br-$network $device"
+    fi
+    lan_devices="$lan_devices $device"
+  done
+fi
 
 case "$host" in
   localhost|localhost.*|0.0.0.0|127.*|::|::1) deny ;;
@@ -80,7 +81,10 @@ is_router_address() {
 
 route_device() {
   local route
-  route=$(ip route get "$1" 2>/dev/null) || return 1
+  case "$1" in
+    *:*) route=$(ip -6 route get "$1" 2>/dev/null) || return 1 ;;
+    *) route=$(ip route get "$1" 2>/dev/null) || return 1 ;;
+  esac
   case " $route " in
     *' via '*) return 1 ;;
   esac

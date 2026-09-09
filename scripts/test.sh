@@ -35,6 +35,7 @@ node -e '
 ' "$view_source"
 node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' \
   "$root/package/data/usr/share/oui/menu.d/github-jump-users.json"
+sh "$root/scripts/test-connect.sh"
 
 grep -q '^Package: glinet-github-jump-users$' "$root/package/CONTROL/control"
 grep -q '^Depends: .*gl-oui-rpc.*gl-sdk4-ui-core$' "$root/package/CONTROL/control"
@@ -43,10 +44,12 @@ grep -q 'no-port-forwarding' "$root/package/data/usr/bin/github-authorized-keys"
 test "$(grep -c 'uci -q delete .* || true' "$root/package/data/usr/sbin/github-jump-users-setup")" -eq 2
 grep -q '^set -f$' "$root/package/data/usr/libexec/github-jump-users-connect"
 ! grep -q '^set -[^ ]*u' "$root/package/data/usr/libexec/github-jump-users-connect"
-test "$(sed -n '/^\. \/lib\/functions\.sh$/=' "$root/package/data/usr/libexec/github-jump-users-connect")" -gt 1
-grep -q 'network_get_device device' "$root/package/data/usr/libexec/github-jump-users-connect"
-grep -q 'config_foreach collect_lan_zone zone' "$root/package/data/usr/libexec/github-jump-users-connect"
+! grep -q '/lib/functions\|network_get_device\|ubus call' "$root/package/data/usr/libexec/github-jump-users-connect"
+grep -q 'uci -q show firewall' "$root/package/data/usr/libexec/github-jump-users-connect"
+grep -q '^lan_devices=br-lan$' "$root/package/data/usr/libexec/github-jump-users-connect"
+grep -q 'network\.\$network\.device' "$root/package/data/usr/libexec/github-jump-users-connect"
 grep -q 'ip route get' "$root/package/data/usr/libexec/github-jump-users-connect"
+grep -q 'ip -6 route get' "$root/package/data/usr/libexec/github-jump-users-connect"
 grep -q 'nslookup .* 127.0.0.1' "$root/package/data/usr/libexec/github-jump-users-connect"
 grep -q 'ip -o address show' "$root/package/data/usr/libexec/github-jump-users-connect"
 grep -q 'exec nc "$target" "$port"' "$root/package/data/usr/libexec/github-jump-users-connect"

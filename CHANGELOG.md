@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.7
+
+- Discover LAN devices directly from UCI instead of OpenWrt's `network_get_device`, avoiding firmware-dependent `network.interface dump` ubus calls.
+- Select the correct routing table command for IPv4 and IPv6 targets.
+
 ## 0.0.6
 
 - Avoid nounset mode when loading and calling OpenWrt shell libraries, which legitimately reference optional variables such as `IPKG_INSTROOT`.
