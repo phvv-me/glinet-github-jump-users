@@ -23,6 +23,16 @@ done
 
 node -e '"use strict"; const component = eval(require("fs").readFileSync(process.argv[1], "utf8")); if (component.name !== "github-jump-users" || typeof component.render !== "function") process.exit(1)' \
   "$view_source"
+node -e '
+  "use strict";
+  const component = eval(require("fs").readFileSync(process.argv[1], "utf8"));
+  const context = { routerEndpoint: "zp93eb0.glddns.com" };
+  const config = component.methods.connectionConfig.call(context, { username: "jump", mode: "jump" });
+  if (!config.includes("Host zp93eb0-jump") ||
+      !config.includes("HostName zp93eb0.glddns.com") ||
+      !config.includes("ProxyCommand ssh zp93eb0-jump connect %h %p") ||
+      config.includes("IdentityFile")) process.exit(1);
+' "$view_source"
 node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' \
   "$root/package/data/usr/share/oui/menu.d/github-jump-users.json"
 
@@ -32,15 +42,22 @@ grep -q '^Depends: .*gl-oui-rpc.*gl-sdk4-ui-core$' "$root/package/CONTROL/contro
 grep -q 'no-port-forwarding' "$root/package/data/usr/bin/github-authorized-keys"
 test "$(grep -c 'uci -q delete .* || true' "$root/package/data/usr/sbin/github-jump-users-setup")" -eq 2
 grep -q '^set -f$' "$root/package/data/usr/libexec/github-jump-users-connect"
-grep -q 'config_list_foreach main target allow_target' "$root/package/data/usr/libexec/github-jump-users-connect"
+grep -q 'network_get_device device' "$root/package/data/usr/libexec/github-jump-users-connect"
+grep -q 'config_foreach collect_lan_zone zone' "$root/package/data/usr/libexec/github-jump-users-connect"
+grep -q 'ip route get' "$root/package/data/usr/libexec/github-jump-users-connect"
+grep -q 'nslookup .* 127.0.0.1' "$root/package/data/usr/libexec/github-jump-users-connect"
 grep -q 'ip -o address show' "$root/package/data/usr/libexec/github-jump-users-connect"
+grep -q 'exec nc "$target" "$port"' "$root/package/data/usr/libexec/github-jump-users-connect"
 grep -q 'localhost|localhost\.\*|0\.0\.0\.0|127\.\*|::|::1' "$root/package/data/usr/libexec/github-jump-users-connect"
-! grep -q 'target_policy' "$root/package/data/etc/config/github-jump-users"
-grep -q 'HostName {target_host}' "$view_source"
+! grep -q '^config settings' "$root/package/data/etc/config/github-jump-users"
+grep -q 'HostName {lan_hostname_or_ip}' "$view_source"
 grep -q 'User {target_user}' "$view_source"
 grep -q 'ProxyCommand ssh.*connect %h %p' "$view_source"
-grep -q 'ssh_alias' "$view_source"
-grep -q 'save_settings' "$root/package/data/usr/lib/oui-httpd/rpc/github-jump-users"
+grep -q 'rpcService("ddns", "get_config")' "$root/src/component.js"
+grep -q '\.glddns\.com' "$root/src/component.js"
+! grep -q 'settings-panel\|Save connection settings' "$root/src/template.html"
+! grep -q 'save_settings' "$root/package/data/usr/lib/oui-httpd/rpc/github-jump-users"
+! grep -q 'IdentityFile\|IdentitiesOnly' "$view_source"
 grep -q 'another GitHub jump-user operation is running' "$root/package/data/usr/sbin/github-jump-users-sync"
 grep -A5 'if test "$mode" = admin' "$root/package/data/usr/sbin/github-jump-users-sync" | grep -q 'awk -v marker='
 ! grep -q 'passwd -l .*|| true' "$root/package/data/usr/sbin/github-jump-users-setup"
@@ -48,7 +65,7 @@ grep -q 'password_is_locked' "$root/package/data/usr/sbin/github-jump-users-setu
 grep -q "'!'\*|'\*'\*" "$root/package/data/usr/sbin/github-jump-users-setup"
 grep -q 'if ! password_is_locked' "$root/package/data/usr/sbin/github-jump-users-setup"
 grep -q 'nginx reload .*|| true' "$root/package/CONTROL/postinst"
-! grep -q 'TARGET_HOST_OR_IP\|flint-' "$view_source"
+! grep -q 'TARGET_HOST_OR_IP' "$view_source"
 grep -q 'gl-button' "$view_source"
 grep -q 'gl-table' "$view_source"
 grep -q 'gl-table-column' "$view_source"
@@ -78,9 +95,9 @@ grep -q '/www/views/gl-sdk4-ui-github-jump-users.common.js.gz' \
 grep -q 'stdout_read_all' "$root/package/data/usr/lib/oui-httpd/rpc/github-jump-users"
 ! grep -q 'Target SSH username' "$root/src/template.html"
 ! grep -q 'Private key path' "$root/src/template.html"
-! grep -q 'target_user\|identity_file' "$root/src/component.js"
-! grep -q 'target_user\|identity_file' "$root/package/data/usr/lib/oui-httpd/rpc/github-jump-users"
-! grep -q 'target_user\|identity_file' "$root/package/data/usr/sbin/github-jump-users-member"
+! grep -q 'identity_file' "$root/src/component.js"
+! grep -Eq 'target_user|identity_file' "$root/package/data/usr/lib/oui-httpd/rpc/github-jump-users"
+! grep -Eq 'target_user|identity_file' "$root/package/data/usr/sbin/github-jump-users-member"
 ! grep -q 'function M.create_account' "$root/package/data/usr/lib/oui-httpd/rpc/github-jump-users"
 test ! -e "$root/package/data/usr/sbin/github-jump-users-account"
 test ! -e "$root/package/data/www/theme/github-jump-users.css"

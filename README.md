@@ -4,7 +4,7 @@ Manage GitHub-backed SSH access for router accounts from a native GL.iNet admin 
 
 The package keeps `root` administration separate from the restricted `jump` account. Administrators can assign GitHub users to either fixed account, refresh public keys, and copy a personalized SSH configuration for every assignment.
 
-The `jump` account cannot open a router shell, request a PTY, or use SSH forwarding. Its forced command only accepts `connect HOST PORT`, and the destination must exactly match the administrator-managed allowlist.
+The `jump` account cannot open a router shell, request a PTY, or use SSH forwarding. Its forced command only accepts `connect HOST PORT`, resolves the destination once, and permits it only when OpenWrt routes that address directly through the router's LAN firewall zone. Router addresses and non-LAN routes are denied.
 
 ## Install
 
@@ -41,15 +41,15 @@ Keys assigned to restricted accounts receive a forced command and options that d
 
 Open Applications, then GitHub Jump Users.
 
-Set the router's DDNS or Tailscale hostname, the local SSH alias, the router SSH port, and one allowed `HOST:PORT` destination per line. An empty allowlist denies every jump connection.
-
 Select `root` or `jump`, then assign a GitHub username.
 
 Refresh reads the current router state. Sync from GitHub downloads every configured GitHub user's current keys and atomically refreshes each router account.
 
 Assigning a GitHub user to `root` grants full router administration. The page marks this as high risk and asks for confirmation.
 
-Prefer a Tailscale hostname over public DDNS and leave GL.iNet WAN-side SSH disabled. The package does not change Dropbear password authentication or firewall policy.
+The SSH configuration action automatically reads the enabled GL.iNet DDNS hostname. If DDNS is disabled, the generated snippet leaves a router-hostname placeholder for you to edit. Target hostnames and users remain placeholders because they belong in your local SSH configuration.
+
+The jump account can connect to services on devices attached to the main LAN, including PCs, laptops, and Raspberry Pis. It cannot connect to the router itself, routed WAN/VPN destinations, or devices assigned only to a different firewall zone. The package does not change Dropbear password authentication or firewall policy.
 
 ## Develop
 

@@ -11,12 +11,7 @@
       activeAccount: "root",
       showAddUser: false,
       status: { accounts: [] },
-      settings: {
-        endpoint: "",
-        ssh_port: 22,
-        ssh_alias: "flint-home",
-        targets: "",
-      },
+      routerEndpoint: "",
       memberForm: {
         github: "",
       },
@@ -41,23 +36,21 @@
   },
 
   methods: {
-    rpc(method, params = {}) {
+    rpcService(service, method, params = {}) {
       return window.$rpcRequest("call", [
         "sid",
-        "github-jump-users",
+        service,
         method,
         params,
       ]);
     },
 
+    rpc(method, params = {}) {
+      return this.rpcService("github-jump-users", method, params);
+    },
+
     applyStatus(status) {
       this.status = status;
-      this.settings = {
-        endpoint: status.endpoint || "",
-        ssh_port: status.ssh_port || 22,
-        ssh_alias: status.ssh_alias || "flint-home",
-        targets: (status.targets || []).join("\n"),
-      };
       if (!status.accounts.some(({ username }) => username === this.activeAccount))
         this.activeAccount = status.accounts[0]?.username || "root";
     },
@@ -82,7 +75,15 @@
 
     async loadStatus() {
       try {
-        this.applyStatus(await this.rpc("get_status"));
+        const [status, ddns] = await Promise.all([
+          this.rpc("get_status"),
+          this.rpcService("ddns", "get_config").catch(() => ({})),
+        ]);
+        const deviceId = String(ddns.device_id || "").trim();
+        this.routerEndpoint = ddns.enable_ddns && deviceId
+          ? `${deviceId}.glddns.com`
+          : "";
+        this.applyStatus(status);
       } catch (error) {
         this.error = error?.message || "Could not load access";
       } finally {
@@ -94,17 +95,6 @@
       return this.perform(
         this.rpc("sync_users"),
         "GitHub keys synchronized",
-      );
-    },
-
-    saveSettings() {
-      const targets = this.settings.targets
-        .split(/\r?\n/)
-        .map((target) => target.trim())
-        .filter(Boolean);
-      return this.perform(
-        this.rpc("save_settings", { ...this.settings, targets }),
-        "Connection settings saved",
       );
     },
 
@@ -167,11 +157,13 @@
     },
 
     connectionConfig(account) {
-      const alias = this.status.ssh_alias || "flint-home";
+      const endpoint = this.routerEndpoint || "{router_hostname}";
+      const deviceAlias = this.routerEndpoint.split(".")[0] || "flint";
+      const alias = `${deviceAlias}-${account.username}`;
       const lines = [
         `Host ${alias}`,
-        `  HostName ${this.status.endpoint}`,
-        `  Port ${this.status.ssh_port}`,
+        `  HostName ${endpoint}`,
+        "  Port 22",
         `  User ${account.username}`,
         "  RequestTTY no",
       ];
@@ -180,11 +172,9 @@
         lines.push(
           "",
           "Host {target_alias}",
-          "  HostName {target_host}",
+          "  HostName {lan_hostname_or_ip}",
           "  Port {target_port}",
           "  User {target_user}",
-          "  IdentityFile ~/.ssh/id_ed25519",
-          "  IdentitiesOnly yes",
           `  ProxyCommand ssh ${alias} connect %h %p`,
         );
       }

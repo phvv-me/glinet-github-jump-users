@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.5
+
+- Auto-detect the enabled GL.iNet DDNS hostname for generated SSH configuration.
+- Remove router endpoint, alias, port, and target overrides from the admin page.
+- Allow restricted jump connections to devices routed directly through the main LAN zone while denying router and non-LAN addresses.
+- Resolve hostnames once and connect to the validated numeric address to prevent a second DNS lookup from changing the destination.
+- Stop hard-coding a client private-key path in generated SSH configuration.
+
 ## 0.0.4
 
 - Treat an already locked BusyBox account as a successful, verified setup state.
