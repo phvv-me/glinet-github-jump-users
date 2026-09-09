@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.6
+
+- Avoid nounset mode when loading and calling OpenWrt shell libraries, which legitimately reference optional variables such as `IPKG_INSTROOT`.
+
 ## 0.0.5
 
 - Auto-detect the enabled GL.iNet DDNS hostname for generated SSH configuration.

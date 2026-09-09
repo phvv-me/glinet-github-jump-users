@@ -1,5 +1,5 @@
 #!/bin/ash
-set -eu
+set -e
 set -f
 
 . /lib/functions.sh
