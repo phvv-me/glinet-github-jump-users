@@ -12,12 +12,14 @@ The very first install on a given router has to happen from a shell. OPKG discar
 
 ```sh
 cd /tmp
-wget https://github.com/phvv-me/glinet-github-jump-users/releases/latest/download/glinet-github-jump-users_all.ipk
-wget https://github.com/phvv-me/glinet-github-jump-users/releases/latest/download/SHA256SUMS
+wget -O glinet-github-jump-users_all.ipk https://github.com/phvv-me/glinet-github-jump-users/releases/latest/download/glinet-github-jump-users_all.ipk
+wget -O SHA256SUMS https://github.com/phvv-me/glinet-github-jump-users/releases/latest/download/SHA256SUMS
 grep ' glinet-github-jump-users_all.ipk$' SHA256SUMS | sha256sum -c -
 opkg install ./glinet-github-jump-users_all.ipk
 rm ./glinet-github-jump-users_all.ipk ./SHA256SUMS
 ```
+
+BusyBox `wget` names a download after the last path segment of wherever GitHub's redirect chain ends, not the file you asked for, so always pass `-O` with the exact filename.
 
 The package's post-install step trusts its own bundled signing key (`opkg-key add`) as a side effect of this install, so this shell command is the only one you ever need to run. The package page appears under Applications as GitHub Jump Users immediately after installation.
 
