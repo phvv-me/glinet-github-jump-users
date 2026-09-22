@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.8
+
+- Sign the published `Packages` feed index with a dedicated usign/signify key and publish `Packages.sig`, so `opkg update` succeeds on routers that enforce `check_signature` instead of silently discarding the unsigned feed list.
+- Commit the feed's public key at `keys/opkg-feed.pub` and document the one-time `opkg-key add` step needed to trust it.
+
 ## 0.0.7
 
 - Discover LAN devices directly from UCI instead of OpenWrt's `network_get_device`, avoiding firmware-dependent `network.interface dump` ubus calls.

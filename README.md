@@ -10,7 +10,15 @@ The `jump` account cannot open a router shell, request a PTY, or use SSH forward
 
 Download `glinet-github-jump-users_all.ipk` and `SHA256SUMS` from the [latest GitHub release](https://github.com/phvv-me/glinet-github-jump-users/releases/latest). Verify the checksum, copy the package to the router, and install it as `root`.
 
-For installation through the GL.iNet admin panel, open Applications and Plug-ins, then Manage Sources. Add `phvv_github_jump_users` with this URL.
+For installation through the GL.iNet admin panel, first trust the feed's signing key once from a router shell. OPKG discards an unsigned feed list outright when `check_signature` is enabled, which otherwise leaves the package invisible in Applications with no visible error.
+
+```sh
+wget -O /tmp/opkg-feed.pub https://raw.githubusercontent.com/phvv-me/glinet-github-jump-users/main/keys/opkg-feed.pub
+opkg-key add /tmp/opkg-feed.pub
+rm /tmp/opkg-feed.pub
+```
+
+Then open Applications and Plug-ins, then Manage Sources. Add `phvv_github_jump_users` with this URL.
 
 ```text
 https://github.com/phvv-me/glinet-github-jump-users/releases/latest/download

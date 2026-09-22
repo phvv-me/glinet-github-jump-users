@@ -61,6 +61,17 @@ jobs:
           cp "$artifact" dist/feed/glinet-github-jump-users_all.ipk
           cd dist/feed
           sha256sum "glinet-github-jump-users_${VERSION}_all.ipk" glinet-github-jump-users_all.ipk > SHA256SUMS
+      - name: Sign package feed
+        if: steps.release.outputs.exists == 'false'
+        env:
+          OPKG_FEED_SECRET_KEY: ${{ secrets.OPKG_FEED_SECRET_KEY }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y signify-openbsd
+          key=$(mktemp)
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$OPKG_FEED_SECRET_KEY" > "$key"
+          signify-openbsd -S -m dist/feed/Packages -x dist/feed/Packages.sig -s "$key"
       - name: Attest release assets
         if: steps.release.outputs.exists == 'false'
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
@@ -69,6 +80,7 @@ jobs:
             dist/feed/*.ipk
             dist/feed/Packages
             dist/feed/Packages.gz
+            dist/feed/Packages.sig
             dist/feed/SHA256SUMS
       - name: Publish GitHub release
         if: steps.release.outputs.exists == 'false'
@@ -82,6 +94,7 @@ jobs:
             dist/feed/glinet-github-jump-users_all.ipk \
             dist/feed/Packages \
             dist/feed/Packages.gz \
+            dist/feed/Packages.sig \
             dist/feed/SHA256SUMS \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
