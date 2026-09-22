@@ -68,7 +68,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y signify-openbsd
-          key=$(mktemp)
+          key=$(mktemp --suffix=.sec)
           trap 'rm -f "$key"' EXIT
           printf '%s\n' "$OPKG_FEED_SECRET_KEY" > "$key"
           signify-openbsd -S -m dist/feed/Packages -x dist/feed/Packages.sig -s "$key"
