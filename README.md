@@ -8,27 +8,7 @@ The `jump` account cannot open a router shell, request a PTY, or use SSH forward
 
 ## Install
 
-Download `glinet-github-jump-users_all.ipk` and `SHA256SUMS` from the [latest GitHub release](https://github.com/phvv-me/glinet-github-jump-users/releases/latest). Verify the checksum, copy the package to the router, and install it as `root`.
-
-For installation through the GL.iNet admin panel, first trust the feed's signing key once from a router shell. OPKG discards an unsigned feed list outright when `check_signature` is enabled, which otherwise leaves the package invisible in Applications with no visible error.
-
-```sh
-wget -O /tmp/opkg-feed.pub https://raw.githubusercontent.com/phvv-me/glinet-github-jump-users/main/keys/opkg-feed.pub
-opkg-key add /tmp/opkg-feed.pub
-rm /tmp/opkg-feed.pub
-```
-
-Then open Applications and Plug-ins, then Manage Sources. Add `phvv_github_jump_users` with this URL.
-
-```text
-https://github.com/phvv-me/glinet-github-jump-users/releases/latest/download
-```
-
-Apply the source, refresh the package list, search for `glinet-github-jump-users`, and install it. Future released versions appear through the same source.
-
-If an older release remains in the `install user unpacked` state, refresh the package list and upgrade to the latest version. OPKG keeps `/etc/config/github-jump-users` while the newer post-install script completes configuration.
-
-You can also download and install the latest release directly from a router shell.
+The very first install on a given router has to happen from a shell. OPKG discards an unsigned feed list outright when `check_signature` is enabled, so the GL.iNet Applications panel cannot discover this package's custom source until something has trusted its signing key, and there is no panel button that trusts a key. Installing the `.ipk` file directly sidesteps that check entirely.
 
 ```sh
 cd /tmp
@@ -39,7 +19,19 @@ opkg install ./glinet-github-jump-users_all.ipk
 rm ./glinet-github-jump-users_all.ipk ./SHA256SUMS
 ```
 
-The package page appears under Applications as GitHub Jump Users after installation.
+The package's post-install step trusts its own bundled signing key (`opkg-key add`) as a side effect of this install, so this shell command is the only one you ever need to run. The package page appears under Applications as GitHub Jump Users immediately after installation.
+
+From this point on, every future version upgrade can happen entirely from the GL.iNet admin panel. Open Applications and Plug-ins, then Manage Sources, and add `phvv_github_jump_users` with this URL.
+
+```text
+https://github.com/phvv-me/glinet-github-jump-users/releases/latest/download
+```
+
+Apply the source, refresh the package list, search for `glinet-github-jump-users`, and install it to upgrade. Because the signing key is already trusted, the panel search and refresh now succeed without any further shell step.
+
+If an older release remains in the `install user unpacked` state, refresh the package list and upgrade to the latest version. OPKG keeps `/etc/config/github-jump-users` while the newer post-install script completes configuration.
+
+A firmware upgrade wipes both the installed package and the trusted key, so repeat the shell install above once after any firmware upgrade to bootstrap trust again; panel-only upgrades work for every release after that until the next firmware upgrade.
 
 All router accounts use the Flint router's normal SSH service and public port, which is `22` by default. The plugin does not modify the firewall or run another SSH server. Use the Flint remote SSH settings to decide which source IPs can reach SSH.
 

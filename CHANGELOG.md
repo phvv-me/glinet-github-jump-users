@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.9
+
+- Bundle the feed's public key inside the package and trust it automatically from `postinst`, so the one unavoidable first-install shell command is the only shell step ever needed. Every install and upgrade after that works entirely from the GL.iNet Applications panel until the next firmware upgrade wipes the trust store.
+
 ## 0.0.8
 
 - Sign the published `Packages` feed index with a dedicated usign/signify key and publish `Packages.sig`, so `opkg update` succeeds on routers that enforce `check_signature` instead of silently discarding the unsigned feed list.
